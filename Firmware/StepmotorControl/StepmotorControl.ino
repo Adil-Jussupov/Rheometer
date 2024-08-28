@@ -7,67 +7,45 @@
 // defines pins
 #define stepPin D4
 #define dirPin D5
-float spinRate = 1;
-bool switchMot = LOW;
-String inputString = "";      // a String to hold incoming data
-bool stringComplete = false;  // whether the string is complete
+
 long prevtime = 0;
-bool status = HIGH;
+bool stepFlag = HIGH;
+bool dirFlag = HIGH;
+long prevTime = 0;
+int stepDelay = (1250 * 6) / 1.6;  // initial delay at 1 RPM spinRate
+int revolutions = 0;
+float spinRate = 0.100;  // in RPM
 
 void setup() {
+  Serial.begin(9600);
   // Sets the two pins as Outputs
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
-  Serial.begin(9600);
-  inputString.reserve(200);
-  digitalWrite(dirPin, true);  // Enables the motor to move in a particular direction
+  digitalWrite(dirPin, dirFlag);  // Enables the motor to move in a particular direction
+  prevTime = millis();
+  stepDelay = stepDelay / spinRate;
 }
 void loop() {
-  if (stringComplete) {
-    //Serial.println(switchMot);
-    Serial.println(spinRate);
-    digitalWrite(dirPin, switchMot);  // Enables the motor to move in a particular direction
-    stringComplete = false;
-  }
 
   // Makes 200 pulses for making one full cycle rotation
-  if ((micros() - prevtime) > 700) {
-    digitalWrite(stepPin, status);
-    prevtime = micros();
-    status = !status;
-  }
-}
+  if (revolutions >= 12800){
+    Serial.print("SpinRate: "); Serial.print(spinRate);
+    Serial.print(" RPM |  Time: "); Serial.print(millis() - prevTime);
+    Serial.print(" ms  |  Delay: "); Serial.print(stepDelay); Serial.print("\n--------------------------------------------------------------\n");
 
-void serialEvent() {
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    if (inChar == '2') {
-      spinRate += 0.1;
-      stringComplete = true;
-      break;
-    }
-    if (inChar == '1') {
-      spinRate -= 0.1;
-      stringComplete = true;
-      break;
-    }
-    if (inChar == '4') {
-      spinRate += 1.0;
-      stringComplete = true;
-    }
-    if (inChar == '3') {
-      spinRate -= 1.0;
-      stringComplete = true;
-      break;
-    }
-    if (inChar == 'q') {
-      switchMot = !switchMot;
-      stringComplete = true;
-      break;
-    }
-    if (inChar == '\n') {
-      break;
-    }
+    revolutions = 0;
+    //dirFlag = !dirFlag; // change direction every revolution
+    //digitalWrite(dirPin, dirFlag);
+    //digitalWrite(stepPin, true); // release coils in the motor
+    delay(3000);
+
+    prevTime = millis();
   }
+  if ((micros() - prevtime) > stepDelay) {
+    digitalWrite(stepPin, stepFlag);
+    prevtime = micros();
+    stepFlag = !stepFlag;
+    ++revolutions;
+  }
+
 }

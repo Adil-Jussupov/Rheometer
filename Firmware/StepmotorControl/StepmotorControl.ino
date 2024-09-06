@@ -21,6 +21,11 @@ int spinRate = 1;  // in RPM
 String inputString = "";
 bool stateUpdate = true;
 int steps = 0;
+bool flag = HIGH;
+
+// FULL = all pins a LOW = Speed in steps per second
+// Polulu:  1/16 = all pins a HIGH = increase speed to 16. 
+// DRV9925: 1/32 = all pins a HIGH = increase speed to 32.
 
 // Creates an instance - Pick the version you want to use and un-comment it. That's the only required change.
 AccelStepper myStepper(AccelStepper::DRIVER, stepPin, dirPin);  // works for a4988 (Bipolar, constant current, step/direction driver)
@@ -28,15 +33,18 @@ AccelStepper myStepper(AccelStepper::DRIVER, stepPin, dirPin);  // works for a49
 void setup() {
   Serial.begin(9600);
   myStepper.setMaxSpeed(100000);  // this limits the value of setSpeed(). Raise it if you like.
-  myStepper.setSpeed(2500);        // runSpeed() will run the motor at this speed - set it to whatever you like.
-  myStepper.moveTo(10000);
-  myStepper.moveTo(-10000);
+  myStepper.setSpeed(5000);       // runSpeed() will run the motor at this speed - set it to whatever you like.
+  // myStepper.moveTo(10000);
+  // myStepper.moveTo(-10000);
+  //myStepper.runSpeed();  // This will run the motor forever.
+
 }
 
 void loop() {
-  myStepper.runSpeed();  // This will run the motor forever.
+  myStepper.runSpeed();
 
   if (stateUpdate) {
+    
     Serial.print("SpinRate: ");
     Serial.print(spinRate);
     Serial.print(" Units |  Steps: ");

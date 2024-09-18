@@ -33,7 +33,7 @@ AccelStepper myStepper(AccelStepper::DRIVER, stepPin, dirPin);  // works for a49
 void setup() {
   Serial.begin(9600);
   myStepper.setMaxSpeed(100000);  // this limits the value of setSpeed(). Raise it if you like.
-  myStepper.setSpeed(5000);       // runSpeed() will run the motor at this speed - set it to whatever you like.
+  myStepper.setSpeed(1000);       // runSpeed() will run the motor at this speed - set it to whatever you like.
   // myStepper.moveTo(10000);
   // myStepper.moveTo(-10000);
   //myStepper.runSpeed();  // This will run the motor forever.

@@ -1,20 +1,7 @@
-/*
-   Uno sketch to drive a stepper motor using the AccelStepper library.
-   Works with a ULN-2003 unipolar stepper driver, or a bipolar, constant voltage motor driver
-   such as the L298 or TB6612, or a step/direction constant current driver like the a4988.
-// Shows how to run AccelStepper in the simplest,
-// fixed speed mode with no accelerations using runSpeed().
-// Mike McCauley (mikem@airspayce.com)
-// Copyright (C) 2009 Mike McCauley
-12/26/21  Modified to use various drivers vice default.   --jkl
-*/
-// you can enable debug logging to Serial at 115200
-//#define REMOTEXY__DEBUGLOG
 
-// RemoteXY select connection mode and include library
 #define REMOTEXY_MODE__ESP32CORE_BLE
 
-#define ENAB D2
+#define ENAB 32
 
 #include <AccelStepper.h>
 
@@ -28,20 +15,24 @@
 
 // RemoteXY GUI configuration
 #pragma pack(push, 1)
-uint8_t RemoteXY_CONF[] =  // 70 bytes
-  { 255, 4, 0, 0, 0, 63, 0, 19, 0, 0, 0, 0, 31, 1, 106, 200, 1, 1, 5, 0,
-    1, 12, 45, 24, 24, 0, 1, 31, 0, 1, 14, 85, 24, 24, 0, 94, 31, 0, 1, 16,
-    126, 24, 24, 0, 120, 31, 0, 1, 13, 7, 24, 24, 0, 2, 31, 0, 129, 52, 12, 40,
-    11, 64, 1, 79, 110, 47, 79, 102, 102, 0 };
+uint8_t RemoteXY_CONF[] =  // 93 bytes
+  { 255, 4, 0, 2, 0, 86, 0, 19, 0, 0, 0, 0, 31, 1, 106, 200, 1, 1, 5, 0,
+    1, 29, 80, 48, 24, 1, 49, 31, 83, 112, 101, 101, 100, 32, 43, 0, 1, 29, 116, 49,
+    24, 1, 175, 31, 83, 112, 101, 101, 100, 32, 45, 0, 1, 39, 159, 31, 24, 2, 120, 31,
+    82, 101, 118, 101, 114, 115, 101, 0, 67, 20, 41, 69, 29, 85, 2, 26, 10, 42, 7, 26,
+    26, 48, 4, 26, 31, 79, 78, 0, 31, 79, 70, 70, 0 };
 
-
+// this structure defines all the variables and events of your control interface
 struct {
 
   // input variables
-  uint8_t button_01;  // =1 if button pressed, else =0
-  uint8_t button_02;  // =1 if button pressed, else =0
-  uint8_t button_03;  // =1 if button pressed, else =0
-  uint8_t button_04;  // =1 if button pressed, else =0
+  uint8_t speedUp;        // =1 if button pressed, else =0
+  uint8_t speedDown;      // =1 if button pressed, else =0
+  uint8_t reverse;        // =1 if button pressed, else =0
+  uint8_t pushSwitch_01;  // =1 if state is ON, else =0
+
+  // output variables
+  int16_t value_01;  // -32768 .. +32767
 
   // other variable
   uint8_t connect_flag;  // =1 if wire connected, else =0
@@ -49,9 +40,10 @@ struct {
 } RemoteXY;
 #pragma pack(pop)
 
+
 // Motor Connections (constant current, step/direction bipolar motor driver)
-const int dirPin = D6;
-const int stepPin = D5;
+const int dirPin = 27;
+const int stepPin = 26;
 
 // Speed control variables
 int spinRate = 1;  // in RPM
@@ -67,6 +59,10 @@ long currentOnOff = 0;
 bool oscilation = LOW;
 bool oscilationState = LOW;
 long currentOscilation = 0;
+
+bool speedUp = LOW;
+bool speedUpState = LOW;
+long currentSpeedUp = 0;
 
 // FULL = all pins a LOW = Speed in steps per second
 // Polulu:  1/16 = all pins a HIGH = increase speed to 16.
@@ -85,61 +81,74 @@ void setup() {
   // myStepper.moveTo(-10000);
   //myStepper.runSpeed();  // This will run the motor forever.
   pinMode(ENAB, OUTPUT);
-  pinMode(D3, OUTPUT);
-  pinMode(D4, OUTPUT);
+ // pinMode(32, OUTPUT);
+ // pinMode(34, OUTPUT);
 
-  digitalWrite(ENAB, HIGH); // Motor is Off by default 
+ // pinMode(32, OUTPUT);
+ // pinMode(2, OUTPUT);
+ // digitalWrite(25, HIGH);
+ // digitalWrite(2, LOW);
 
-  digitalWrite(D3, HIGH);
-  digitalWrite(D4, LOW);
+
+
+  digitalWrite(ENAB, HIGH);  // Motor is Off by default
+
+ // digitalWrite(32, HIGH);
+ // digitalWrite(34, LOW);
 }
 
 void loop() {
 
   RemoteXY_Handler();
 
-  // if (RemoteXY.button_04 != 0) {
-  //   onOff = !onOff;
-  //   digitalWrite(D2, onOff);
-  //   /*  button pressed */
-  // }
-  if (oscilationState) {
-    if (millis() - currentOscilation >= 1000) oscilationState = LOW;
+  if (speedUpState) {
+    if (millis() - currentSpeedUp >= 1000) speedUpState = LOW;
   }
 
-  if (oscilationState == LOW && RemoteXY.button_03 != 0) {
+  if (speedUpState == LOW && RemoteXY.speedUp != 0) {
+    speedUpState = HIGH;
+    currentSpeedUp = millis();
+    speedUp = !speedUp;
+
+    // Do something when Button 3 pressed
+    spinRate += 100;
+    stateUpdate = true;
+    myStepper.setSpeed(spinRate);
+    RemoteXY.value_01 = spinRate;
+    Serial.println("SpeedUp");
+  }
+
+  if (oscilationState == LOW && RemoteXY.reverse != 0) {
     oscilationState = HIGH;
     currentOscilation = millis();
     oscilation = !oscilation;
-    
+
     // Do something when Button 3 pressed
     spinRate = spinRate * (-1);
     stateUpdate = true;
     myStepper.setSpeed(spinRate);
+    RemoteXY.value_01 = spinRate;
 
     Serial.print("Oscilation is ");
     if (oscilation) Serial.println("on");
     else Serial.println("off");
-  
   }
 
-  if (onOffState) {
-    if (millis() - currentOnOff >= 1000) onOffState = LOW;
-  }
-
-  if (onOffState == LOW && RemoteXY.button_04 != 0) {
-    onOffState = HIGH;
-    currentOnOff = millis();
-    onOff = !onOff;
-    
+  if (RemoteXY.pushSwitch_01 != 0 && !onOffState) {
     // Do something when Button 3 pressed
-    digitalWrite(ENAB, onOff);
-
-    Serial.print("Motor is ");
-    if (!onOff) Serial.println("on");
-    else Serial.println("off");
-    /*  button pressed */
+    onOffState = !onOffState;
+    digitalWrite(ENAB, onOffState);
+    Serial.println("Motor is on");
+    digitalWrite(25, LOW);
   }
+  if (RemoteXY.pushSwitch_01 == 0 && onOffState) {
+    onOffState = !onOffState;
+    digitalWrite(ENAB, onOffState);
+    Serial.println("Motor is off");
+    digitalWrite(25, HIGH);
+  }
+  /*  button pressed */
+
 
   myStepper.runSpeed();
 

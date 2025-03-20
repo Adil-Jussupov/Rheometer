@@ -60,9 +60,6 @@ struct {
 #pragma pack(pop)
 
 
-
-
-
 #define ENPIN D0
 
 #define MS1PIN D1
